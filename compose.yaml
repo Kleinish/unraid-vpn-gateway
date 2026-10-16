@@ -1,0 +1,25 @@
+services:
+  vpn-gateway:
+    build: .
+    image: unraid-vpn-gateway:1.0.0-rc1
+    container_name: vpn-gateway
+    cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ./config/openvpn:/config/openvpn:ro
+      - ./secrets:/run/vpn-secrets:ro
+    environment:
+      VPN_CONFIG: /config/openvpn/client.ovpn
+      VPN_AUTH_FILE: "" # certificate-only default
+      DNS_SERVERS: 1.1.1.1,9.9.9.9
+      LAN_CIDRS: ""
+      LAN_TCP_PORTS: ""
+      LAN_UDP_PORTS: ""
+    restart: unless-stopped
+  # app:
+  #   image: example/app:tag
+  #   network_mode: service:vpn-gateway
+  #   depends_on:
+  #     vpn-gateway:
+  #       condition: service_healthy

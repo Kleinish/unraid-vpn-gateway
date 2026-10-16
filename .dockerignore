@@ -1,0 +1,10 @@
+secrets
+config
+.git
+.github
+*.ovpn
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx

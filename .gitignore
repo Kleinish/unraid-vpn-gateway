@@ -1,0 +1,11 @@
+secrets/
+config/openvpn/*
+!config/openvpn/.gitkeep
+*.ovpn
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx
+__pycache__/
+.pytest_cache/
