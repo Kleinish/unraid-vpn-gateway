@@ -57,6 +57,45 @@ def endpoints(path):
     return remotes
 
 
+
+def lan_routes(lans, gateway, iface='eth0'):
+    """Add narrow return routes, never a default-route bypass."""
+    if not lans:
+        return
+    if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,15}', iface):
+        raise ValueError('Invalid LAN interface')
+    if gateway:
+        gw = ipaddress.ip_address(gateway)
+        if gw.version != 4 or gw.is_loopback or gw.is_multicast or gw.is_unspecified:
+            raise ValueError('LAN_GATEWAY must be a usable IPv4 address')
+        gateway = str(gw)
+    else:
+        # Read the original underlay default route (before OpenVPN starts).
+        result = subprocess.run(['ip', '-4', 'route', 'show', 'default', 'dev', iface],
+                                check=True, capture_output=True, text=True)
+        matches = re.findall(r'\bvia\s+(\d+\.\d+\.\d+\.\d+)', result.stdout)
+        if not matches:
+            raise ValueError('No underlay default gateway; set LAN_GATEWAY explicitly')
+        gateway = str(ipaddress.IPv4Address(matches[0]))
+    # The next hop must be directly reachable via the underlay interface.
+    result = subprocess.run(['ip', '-4', 'route', 'get', gateway],
+                            check=True, capture_output=True, text=True)
+    if not re.search(r'\bdev\s+' + re.escape(iface) + r'\b', result.stdout):
+        raise ValueError(f'LAN_GATEWAY {gateway} is not reachable via {iface}')
+    for cidr in lans:
+        net = ipaddress.IPv4Network(cidr)
+        if net.prefixlen == 0:
+            raise ValueError('LAN_CIDRS must not include 0.0.0.0/0')
+        if net.is_multicast or net.is_loopback or net.is_link_local or net.is_unspecified:
+            raise ValueError(f'Unsafe LAN_CIDRS network: {cidr}')
+        # Connected subnets are already routed directly and should not be overridden.
+        current = subprocess.run(['ip', '-4', 'route', 'get', str(net.network_address)],
+                                 check=True, capture_output=True, text=True)
+        if re.search(r'\bdev\s+' + re.escape(iface) + r'\b', current.stdout) and ' via ' not in current.stdout:
+            continue
+        run('ip', '-4', 'route', 'replace', str(net), 'via', gateway, 'dev', iface)
+    print(f'LAN return routes active via {gateway} dev {iface}', flush=True)
+
 def main():
     config = os.environ['VPN_CONFIG']
     eps = endpoints(config)
@@ -66,6 +105,10 @@ def main():
     tcp = ports('LAN_TCP_PORTS')
     udp = ports('LAN_UDP_PORTS')
     tun = os.environ['VPN_TUN']
+    iface = os.getenv('LAN_INTERFACE', 'eth0')
+    gateway = os.getenv('LAN_GATEWAY', '').strip()
+    if any(ipaddress.IPv4Network(c).prefixlen == 0 for c in lans):
+        raise ValueError('LAN_CIDRS must not contain a default route')
     if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,15}', tun):
         raise ValueError('Invalid tunnel interface')
     # Set policies FIRST; flush afterward so previous rules cannot allow leaks.
@@ -87,13 +130,15 @@ def main():
     # OpenVPN handshake is the only allowed external non-tunnel traffic.
     for host, port, proto in eps:
         run('iptables', '-A', 'OUTPUT', '-o', 'eth0', '-d', host, '-p', proto, '--dport', port, '-j', 'ACCEPT')
+    # Routes must exist before OpenVPN installs split default routes through tun0.
+    lan_routes(lans, gateway, iface)
     # Local network bypass is explicit, restricted to configured CIDRs.
     for cidr in lans:
-        run('iptables', '-A', 'OUTPUT', '-d', cidr, '-m', 'conntrack', '--ctstate', 'ESTABLISHED,RELATED', '-j', 'ACCEPT')
+        run('iptables', '-A', 'OUTPUT', '-o', iface, '-d', cidr, '-m', 'conntrack', '--ctstate', 'ESTABLISHED,RELATED', '-j', 'ACCEPT')
         for port in tcp:
-            run('iptables', '-A', 'INPUT', '-s', cidr, '-p', 'tcp', '--dport', port, '-j', 'ACCEPT')
+            run('iptables', '-A', 'INPUT', '-i', iface, '-s', cidr, '-p', 'tcp', '--dport', port, '-m', 'conntrack', '--ctstate', 'NEW', '-j', 'ACCEPT')
         for port in udp:
-            run('iptables', '-A', 'INPUT', '-s', cidr, '-p', 'udp', '--dport', port, '-j', 'ACCEPT')
+            run('iptables', '-A', 'INPUT', '-i', iface, '-s', cidr, '-p', 'udp', '--dport', port, '-m', 'conntrack', '--ctstate', 'NEW', '-j', 'ACCEPT')
     print(f'Firewall active: {len(eps)} VPN endpoint(s), {len(lans)} LAN CIDR(s), IPv6 blocked', flush=True)
 
 

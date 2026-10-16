@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Container version="2">
   <Name>vpn-gateway</Name>
-  <Repository>unraid-vpn-gateway:1.0.0-rc1</Repository>
+  <Repository>ghcr.io/kleinish/unraid-vpn-gateway:1.0.0-rc2</Repository>
   <Registry>https://ghcr.io</Registry>
   <Network>bridge</Network>
+  <Icon>https://raw.githubusercontent.com/Kleinish/unraid-vpn-gateway/refs/heads/main/vpn.png</Icon>
   <Privileged>false</Privileged>
-  <Support>https://github.com/REPLACE_WITH_YOUR_USER/unraid-vpn-gateway/issues</Support>
-  <Project>https://github.com/REPLACE_WITH_YOUR_USER/unraid-vpn-gateway</Project>
-  <Overview>Fail-closed OpenVPN gateway for other Docker containers. Numeric IPv4 remote required; test kill switch before production. Set Extra Parameters: --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun</Overview>
+  <Support>https://github.com/Kleinish/unraid-vpn-gateway/issues</Support>
+  <Project>https://github.com/Kleinish/unraid-vpn-gateway</Project>
+  <Overview>OpenVPN-only gateway with default-deny firewall and configurable LAN WebUI access. Release candidate: cross-VLAN WebUI support; validate disconnect and leak behavior before production use. Supports Unraid Custom: eth0.72 with a fixed IP when configured in the UI.</Overview>
   <Category>Network:VPN</Category>
   <ExtraParams>--cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun</ExtraParams>
   <Config Name="OpenVPN config directory" Target="/config/openvpn" Default="/mnt/user/appdata/vpn-gateway/openvpn" Mode="ro" Description="Contains client.ovpn and referenced certs" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vpn-gateway/openvpn</Config>
@@ -15,7 +16,8 @@
   <Config Name="VPN_CONFIG" Target="VPN_CONFIG" Default="/config/openvpn/client.ovpn" Mode="" Description="OpenVPN config file" Type="Variable" Display="always" Required="true" Mask="false">/config/openvpn/client.ovpn</Config>
   <Config Name="VPN_AUTH_FILE" Target="VPN_AUTH_FILE" Default="" Mode="" Description="Leave blank if config does not require auth file" Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="DNS_SERVERS" Target="DNS_SERVERS" Default="1.1.1.1,9.9.9.9" Mode="" Description="Comma separated IPv4 DNS servers routed through VPN" Type="Variable" Display="always" Required="true" Mask="false">1.1.1.1,9.9.9.9</Config>
-  <Config Name="LAN_CIDRS" Target="LAN_CIDRS" Default="" Mode="" Description="Comma separated IPv4 LAN subnets allowed to bypass VPN" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="LAN_CIDRS" Target="LAN_CIDRS" Default="" Mode="" Description="Comma-separated authorized client IPv4 CIDRs; creates specific return routes via underlay router" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="LAN_GATEWAY" Target="LAN_GATEWAY" Default="" Mode="" Description="Optional underlay router IPv4 for cross-VLAN return routes; blank detects eth0 default gateway" Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="LAN_TCP_PORTS" Target="LAN_TCP_PORTS" Default="" Mode="" Description="Comma separated TCP ports accessible from configured LAN CIDRs" Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="LAN_UDP_PORTS" Target="LAN_UDP_PORTS" Default="" Mode="" Description="Comma separated UDP ports accessible from LAN" Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <!-- Add application port mappings through the Unraid template editor as needed. -->

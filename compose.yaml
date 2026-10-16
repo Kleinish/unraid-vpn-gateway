@@ -1,7 +1,6 @@
 services:
   vpn-gateway:
-    build: .
-    image: unraid-vpn-gateway:1.0.0-rc1
+    image: ghcr.io/kleinish/unraid-vpn-gateway:1.0.0-rc2
     container_name: vpn-gateway
     cap_add: [NET_ADMIN]
     devices:
@@ -14,6 +13,7 @@ services:
       VPN_AUTH_FILE: "" # certificate-only default
       DNS_SERVERS: 1.1.1.1,9.9.9.9
       LAN_CIDRS: ""
+      LAN_GATEWAY: "" # optional; detects underlay router automatically
       LAN_TCP_PORTS: ""
       LAN_UDP_PORTS: ""
     restart: unless-stopped
